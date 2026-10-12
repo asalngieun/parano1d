@@ -1,11 +1,12 @@
 # Parano1d ①
 
-> **V2 activation: mainnet block 210537.** This README describes the v2 rules.
-> Before that height the network uses v1.1. Activation follows height; the
-> planning estimate is October 10, 2026, 11:59 PM PDT (October 11, 06:59 UTC).
-> Previous profiles and measurements are in the [archive](docs/archive/index.md).
-
-**Proof-native Layer 1 ordered by proof of work. From live value to live rights.**
+Parano1d is a live proof-native L1 where the present proves the past. Proofs
+establish validity. PoW sets canonical order. Signatureless authorization,
+execution and recursion share one transparent end-to-end post-quantum stack. V2
+adds proof-native contracts: programmable live rights verifiable after pruning.
+Nodes verify state and rights from genesis without replay or trusted
+checkpoints. Block bodies and transactions are pruned after retention. Receipts
+remain verifiable. Mainnet is live.
 
 [Website](https://parano1d.org) ·
 [Documentation](https://docs.parano1d.org) ·
@@ -15,17 +16,6 @@
 **Source:** [Forgejo](https://git.parano1d.org/ignotusnemo/parano1d) (canonical) ·
 [GitHub](https://github.com/proof-native/parano1d) ·
 [GitLab](https://gitlab.com/ignotusnemo/parano1d)
-
-Parano1d makes the current State independently verifiable without replaying
-historical transactions. The wallet proves authorization with its private
-witness. The miner proves public execution and the exact State transition.
-Peers verify the resulting recursive proof and materialize the proven writes.
-
-Every accepted block carries a `HistoryStep` that proves its transition and
-verifies the preceding terminal. A joining node authenticates Live State and
-a bounded recent suffix. Old transaction bodies can be pruned; their validity
-remains in the recursive proof. Permanent headers still support cumulative-work
-comparison, and State transfer still scales with the live data.
 
 ## From live value to live rights
 

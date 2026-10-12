@@ -66,7 +66,7 @@ nonce search and propagation share that interval. ASERT adjusts the target
 using six-block reference epochs and a 180-second half-life. The target is
 encoded as a 256-bit little-endian integer.
 
-From v2 activation at height 210,537, validation derives the one exact target
+Validation derives the one exact target
 from the canonical anchor and the parent header. Blocks with the same parent
 have equal targets regardless of their own timestamps. Miners do not choose
 among a range of acceptable difficulties.
@@ -111,7 +111,7 @@ Continue with [Blocks and headers](blocks.md),
 
 ## Height-selected rules
 
-Mainnet v2 applies from H210537. Candidate height selects the proof bank,
+Candidate height selects the proof bank,
 resource budgets, 30-second timing and height-based subsidy together. The first
 new proof binds to the selected predecessor; reorgs across that boundary must
 replace the origin and undo orphaned contract transitions. ASERT sums ideal

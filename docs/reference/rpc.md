@@ -248,9 +248,8 @@ new quote.
 ## Contract methods
 
 All methods below use the `paranoid_` prefix and **local owner scope**.
-The installed v2 binary exposes terms, metadata and local observation before
-H210537. `walletFundObject`, `previewObjectCall` and `walletCallObject` require
-v2 at the next candidate height and `runtime_available = true`.
+`walletFundObject`, `previewObjectCall` and `walletCallObject` require an
+authenticated v2 runtime (`runtime_available = true`).
 
 | Method suffix | Positional parameters | Result |
 | --- | --- | --- |

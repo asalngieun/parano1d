@@ -22,10 +22,8 @@ The response contains `tip_height`, `activation_height`, `active_at_next_block`,
 `live_inputs`, `contract_calls`. The v2 values are ABI 3, 16 instructions,
 2 persistent registers, Small 63/504/63 and Large 206/504/63.
 
-Mainnet v2 rules start at **H210537**. The new binary can prepare public terms,
-watch openings and read local metadata before that height. Funding, previews
-and calls require both activation at the **next candidate height** and an
-available authenticated v2 runtime. A pre-v2 binary does not expose these methods.
+Funding, previews and calls require an available authenticated v2 runtime
+(`runtime_available = true`).
 
 ## Methods
 

@@ -228,10 +228,9 @@ Token 缺失或不匹配时返回 HTTP `401`，没有 JSON-RPC 结果。有效�
 
 ## 合约方法
 
-所有方法使用 `paranoid_` 前缀及**本地所有者权限**。安装的 v2 二进制在
-H210537 之前提供条款、元数据和本地观察。`walletFundObject`、
-`previewObjectCall`、`walletCallObject` 要求下一个候选高度已启用 v2，
-且 `runtime_available = true`。
+所有方法使用 `paranoid_` 前缀及**本地所有者权限**。`walletFundObject`、
+`previewObjectCall`、`walletCallObject` 要求已认证的 v2 运行时可用
+（`runtime_available = true`）。
 
 | 方法后缀 | 位置参数 | 结果 |
 | --- | --- | --- |

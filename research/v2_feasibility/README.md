@@ -32,10 +32,10 @@ block production and an offline restart after a both-class legacy boundary.
 The [wallet discovery run](results/2026-09-25-contract-discovery/REPORT.md)
 covers participant calls, reorganization rollback and a real GUI-submitted call.
 The [core candidate](CORE_CANDIDATE.md) lists the operations and policies that
-are included in the joint-bank measurements. The development branch
-schedules 30-second v2 blocks at H210537, estimated for October 10, 2026 at
-23:59 PDT. Running mainnet remains on its existing v1.1 release. The final
-joint matrix bank and call capacities still require selection and qualification.
+are included in the joint-bank measurements. Mainnet runs v2 with 30-second
+blocks. The selected joint Small/Large matrix bank and qualified capacities are
+documented in the [current consensus parameters](../../docs/protocol/parameters.md)
+and [performance reference](../../docs/reference/performance.md).
 
 The September 15 integrated prototype established feasibility for an earlier
 object relation; its row counts are historical and do not describe the current

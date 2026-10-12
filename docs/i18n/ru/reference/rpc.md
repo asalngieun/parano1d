@@ -251,9 +251,8 @@ Operator-токен может расходовать средства акти�
 ## Методы контрактов
 
 Все методы имеют префикс `paranoid_` и требуют **локальных прав владельца**.
-Установленный бинарник v2 предоставляет условия, метаданные и наблюдение до
-H210537. `walletFundObject`, `previewObjectCall`, `walletCallObject` требуют
-v2 на следующей высоте кандидата и `runtime_available = true`.
+`walletFundObject`, `previewObjectCall`, `walletCallObject` требуют
+аутентифицированного runtime v2 (`runtime_available = true`).
 
 | Суффикс метода | Позиционные параметры | Результат |
 | --- | --- | --- |

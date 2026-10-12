@@ -44,9 +44,9 @@ Equality fails.
 
 The target interval between accepted blocks is 30 seconds. Proof preparation,
 nonce search and propagation all occupy that interval. ASERT uses a six-block
-reference epoch and a 180-second half-life. From v2 activation at height 210,537,
-validation derives each block's exact target from the canonical anchor and its
-parent's height and timestamp. Siblings of the same parent have the same target;
+reference epoch and a 180-second half-life. Validation derives each block's
+exact target from the canonical anchor and its parent's height and timestamp.
+Siblings of the same parent have the same target;
 changing a candidate's timestamp cannot change its work.
 
 A timestamp must also be greater than median time past over the previous 11
