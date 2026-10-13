@@ -37,7 +37,7 @@ case "$PLATFORM" in
     ;;
 esac
 
-for command in codesign hdiutil iconutil install mktemp plutil sed; do
+for command in codesign hdiutil iconutil install mktemp plutil python3 sed; do
   command -v "$command" >/dev/null 2>&1 || {
     echo "required command is missing: $command" >&2
     exit 1
@@ -129,12 +129,15 @@ codesign --verify --deep --strict "$APP"
 "$MACOS/Parano1d" --release-self-check >/dev/null
 "$MACOS/parano1d-node" --check-hardware >/dev/null
 
-cp -R "$APP" "$DMG_ROOT/Parano1d.app"
+mv "$APP" "$DMG_ROOT/Parano1d.app"
 ln -s /Applications "$DMG_ROOT/Applications"
 ARTIFACT="$OUTPUT_DIR/parano1d-gui-v${VERSION}-${PLATFORM}.dmg"
+IMAGE_SIZE_MIB=$(python3 "$SCRIPT_DIR/dmg_size.py" "$DMG_ROOT")
 hdiutil create \
   -volname "Parano1d" \
   -srcfolder "$DMG_ROOT" \
+  -fs HFS+ \
+  -size "${IMAGE_SIZE_MIB}m" \
   -format UDZO \
   -ov \
   "$ARTIFACT" >/dev/null
