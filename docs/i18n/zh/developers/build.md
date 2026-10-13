@@ -125,7 +125,8 @@ target/release/noid_v2_soundness \
   --pack ../parano1d-artifacts/history-step-pack-v1 \
   --v2-pack PATH_TO_FROZEN_V2_PACK \
   --v2-pins PATH_TO_REVIEWED_PIN_FILE \
-  --retirement-keys PATH_TO_AUTHENTICATED_KEYS
+  --retirement-keys PATH_TO_AUTHENTICATED_KEYS \
+  --retired-history
 
 cat target/release-builds/LAST_RELEASE
 ```
@@ -134,10 +135,14 @@ cat target/release-builds/LAST_RELEASE
 执行二进制冒烟检查，验证包成员和 SHA-256。完整协议测试套件单独运行。
 `proof-pins.env` 记录嵌入身份，`--output PATH` 选择新输出目录。
 
-后续 `--retired-history` 构建在所选来源认证证书可通过 P2P 获取后移除旧矩阵
-字节，仍需两套新矩阵、旧运行时元数据、独立固定的预处理密钥及完整证书验证。
-历史包可只包含 `v1/history-step.runtime` 和 `pins.env`。过渡版本不使用此标志，
-以便通过原矩阵跨越边界。
+当前主网发布使用 `--retired-history`。来源证书通过 P2P 获取，并根据独立固定的
+预处理密钥完成验证。二进制保留两套 v2 矩阵及旧运行时元数据。历史输入归档仅包含
+`v1/history-step.runtime`、`pins.env` 及其 `SHA256SUMS`。
+
+此配置使用与 v2.0.3 相同的主网规则。保留旧矩阵的节点继续与无旧矩阵构建协同运行，
+并支持两种证书格式。
+
+发布工具默认选择此配置。复现包含原始矩阵的过渡版本时，使用 `--with-legacy-history`。
 
 ## 可移植二进制
 

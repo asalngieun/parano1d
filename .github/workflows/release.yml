@@ -28,6 +28,11 @@ on:
         description: Successful Platform CI run for the tagged commit
         required: true
         type: string
+      retired_history:
+        description: Omit legacy matrices and verify ancestry through retirement certificates
+        required: true
+        default: true
+        type: boolean
       replace_existing:
         description: Replace an already published release only after every native build is ready
         required: true
@@ -52,6 +57,7 @@ env:
   V2_PACK_SHA256: ${{ inputs.v2_pack_sha256 }}
   RELEASE_CHANNEL: ${{ inputs.release_channel }}
   PLATFORM_CI_RUN_ID: ${{ inputs.platform_ci_run_id }}
+  RETIRED_HISTORY: ${{ inputs.retired_history }}
   REPLACE_EXISTING: ${{ inputs.replace_existing }}
 
 jobs:
@@ -168,7 +174,11 @@ jobs:
             --pattern history-step-pack-v1.tar.gz \
             --pattern history-step-pack-v2.tar.gz \
             --dir pack-preflight
-          python scripts/release_material.py extract --kind v1 \
+          legacy_args=()
+          if [[ "$RETIRED_HISTORY" == true ]]; then
+            legacy_args+=(--retired-history)
+          fi
+          python scripts/release_material.py extract --kind v1 "${legacy_args[@]}" \
             --archive pack-preflight/history-step-pack-v1.tar.gz \
             --sha256 "$PACK_SHA256" --output pack-preflight/verified
           python scripts/release_material.py extract --kind v2 \
@@ -285,22 +295,30 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          python scripts/release_material.py extract --kind v1 \
+          legacy_args=()
+          if [[ "$RETIRED_HISTORY" == true ]]; then
+            legacy_args+=(--retired-history)
+          fi
+          python scripts/release_material.py extract --kind v1 "${legacy_args[@]}" \
             --archive .release-ci/download/history-step-pack-v1.tar.gz \
             --sha256 "$PACK_SHA256" --output .release-ci/pack
           python scripts/release_material.py extract --kind v2 \
             --archive .release-ci/download/history-step-pack-v2.tar.gz \
             --sha256 "$V2_PACK_SHA256" --output .release-ci/pack
 
-      - name: Build transition bundle with both matrix generations
+      - name: Build Core and GUI bundle
         shell: bash
         run: |
+          build_args=()
+          if [[ "$RETIRED_HISTORY" == true ]]; then
+            build_args+=(--retired-history)
+          fi
           bash ./scripts/build_release.sh \
             --pack .release-ci/pack/history-step-pack-v1 \
             --v2-pack .release-ci/pack/history-step-pack-v2 \
             --v2-pins .release-ci/pack/history-step-pack-v2/pins.env \
             --retirement-keys .release-ci/pack/history-step-pack-v2/retirement-keys \
-            --output .release-ci/build
+            --output .release-ci/build "${build_args[@]}"
           test -s ".release-ci/build/$ARTIFACT_NAME"
           test -s ".release-ci/build/$GUI_ARTIFACT_NAME"
 

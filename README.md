@@ -136,10 +136,14 @@ log2 value **173.3897612554174** and an ideal success bound of about
 [security model](docs/protocol/security-model.md) and
 [exact final-bank records](research/v2_feasibility/results/2026-09-25-common-input-budget/REPORT.md#accounting-for-the-final-banks).
 
-The fork binds the new proof to the selected last old block. The transition
-release includes the historical verification material. A later
-`--retired-history` build can omit old matrix bytes using independently
-verified ancestry certificates; it does not introduce a trusted checkpoint.
+The fork binds the new proof to the selected last old block. Release builds
+omit the old matrices and verify that ancestry through retirement certificates
+under independently pinned keys. Old runtime metadata and the two v2 matrices
+remain part of the verifier.
+
+Nodes running v2.0.3 continue to work with their embedded legacy matrices and
+support both certificate formats. Matrix retirement changes the packaged
+verification material while retaining the same mainnet consensus rules.
 
 ## Run a node or wallet
 
@@ -198,7 +202,8 @@ programs use this shared bank and do not generate new matrices.
   --pack PATH_TO_LEGACY_PACK \
   --v2-pack PATH_TO_FROZEN_V2_PACK \
   --v2-pins PATH_TO_REVIEWED_PIN_FILE \
-  --retirement-keys PATH_TO_AUTHENTICATED_KEYS
+  --retirement-keys PATH_TO_AUTHENTICATED_KEYS \
+  --retired-history
 ```
 
 Designed and developed by **Ignotus Nemo**. [Apache License 2.0](LICENSE).

@@ -40,6 +40,14 @@ PINS = {
 }
 
 
+def pack_files(kind, retired_history=False):
+    if retired_history:
+        if kind != "v1":
+            raise ValueError("retired history applies only to the legacy pack")
+        return ("v1/history-step.runtime", "pins.env")
+    return FILES[kind]
+
+
 def digest(path):
     result = hashlib.sha256()
     with Path(path).open("rb") as stream:
@@ -70,14 +78,15 @@ def validate_pins(data, kind):
         raise ValueError("missing release pin")
 
 
-def verify_manifest(root, kind):
+def verify_manifest(root, kind, retired_history=False):
+    files = pack_files(kind, retired_history)
     entries = {}
     for line in (root / "SHA256SUMS").read_text(encoding="ascii").splitlines():
         match = re.fullmatch(r"([0-9a-f]{64})  (.+)", line)
-        if not match or match[2] not in FILES[kind] or match[2] in entries:
+        if not match or match[2] not in files or match[2] in entries:
             raise ValueError("invalid matrix pack SHA256SUMS")
         entries[match[2]] = match[1]
-    if entries.keys() != set(FILES[kind]):
+    if entries.keys() != set(files):
         raise ValueError("incomplete matrix pack SHA256SUMS")
     for name, expected in entries.items():
         if digest(root / name) != expected:
@@ -85,16 +94,19 @@ def verify_manifest(root, kind):
     validate_pins((root / "pins.env").read_bytes(), kind)
 
 
-def write_archive(kind, sources, output):
+def write_archive(kind, sources, output, retired_history=False):
     root = f"history-step-pack-{kind}"
+    files = pack_files(kind, retired_history)
+    if sources.keys() != set(files):
+        raise ValueError("archive sources do not match the selected history profile")
     sources = {name: regular_file(path) for name, path in sources.items()}
     validate_pins(sources["pins.env"].read_bytes(), kind)
-    manifest = "".join(f"{digest(sources[name])}  {name}\n" for name in FILES[kind])
+    manifest = "".join(f"{digest(sources[name])}  {name}\n" for name in files)
     # No source path, mtime, ownership or gzip filename enters the archive.
     with output.open("xb") as raw:
         with gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as gz:
             with tarfile.open(fileobj=gz, mode="w", format=tarfile.USTAR_FORMAT) as archive:
-                for name in (*FILES[kind], "SHA256SUMS"):
+                for name in (*files, "SHA256SUMS"):
                     info = tarfile.TarInfo(f"{root}/{name}")
                     info.mode = 0o644
                     if name == "SHA256SUMS":
@@ -110,9 +122,12 @@ def write_archive(kind, sources, output):
 
 def create(args):
     args.output.mkdir(parents=True, exist_ok=True)
-    verify_manifest(args.legacy_pack, "v1")
-    sources = {name: args.legacy_pack / name for name in FILES["v1"]}
-    write_archive("v1", sources, args.output / "history-step-pack-v1.tar.gz")
+    retired = getattr(args, "retired_history", False)
+    matrices_present = any((args.legacy_pack / name).exists() or (args.legacy_pack / name).is_symlink()
+                           for name in FILES["v1"] if name.endswith(".zst"))
+    verify_manifest(args.legacy_pack, "v1", retired_history=retired and not matrices_present)
+    sources = {name: args.legacy_pack / name for name in pack_files("v1", retired)}
+    write_archive("v1", sources, args.output / "history-step-pack-v1.tar.gz", retired_history=retired)
     sources = {name: args.v2_pack / name for name in FILES["v2"]}
     sources["pins.env"] = args.v2_pins
     for index in range(2):
@@ -124,7 +139,8 @@ def extract(args):
     if not re.fullmatch(r"[0-9a-f]{64}", args.sha256) or digest(args.archive) != args.sha256:
         raise ValueError("matrix archive SHA-256 mismatch")
     root_name = f"history-step-pack-{args.kind}"
-    required = {f"{root_name}/{name}" for name in (*FILES[args.kind], "SHA256SUMS")}
+    retired = getattr(args, "retired_history", False)
+    required = {f"{root_name}/{name}" for name in (*pack_files(args.kind, retired), "SHA256SUMS")}
     directories = {str(parent) for name in required for parent in PurePosixPath(name).parents if str(parent) != "."}
     root = args.output / root_name
     if root.exists() or root.is_symlink():
@@ -154,7 +170,7 @@ def extract(args):
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 with archive.extractfile(member) as source, destination.open("xb") as target:
                     shutil.copyfileobj(source, target)
-            verify_manifest(root, args.kind)
+            verify_manifest(root, args.kind, retired_history=retired)
         except Exception:
             shutil.rmtree(root)
             raise
@@ -167,11 +183,15 @@ def main():
     pack = commands.add_parser("create")
     for name in ("legacy-pack", "v2-pack", "v2-pins", "retirement-keys", "output"):
         pack.add_argument(f"--{name}", type=Path, required=True)
+    pack.add_argument("--retired-history", action="store_true",
+                      help="omit both legacy matrices from the v1 archive")
     unpack = commands.add_parser("extract")
     unpack.add_argument("--kind", choices=FILES, required=True)
     unpack.add_argument("--archive", type=Path, required=True)
     unpack.add_argument("--sha256", required=True)
     unpack.add_argument("--output", type=Path, required=True)
+    unpack.add_argument("--retired-history", action="store_true",
+                        help="require the metadata-only v1 archive")
     args = parser.parse_args()
     try:
         (create if args.command == "create" else extract)(args)

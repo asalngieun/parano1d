@@ -23,9 +23,9 @@ class ReleaseMaterialTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
 
-    def archive(self, kind):
+    def archive(self, kind, retired_history=False):
         sources = {}
-        for name in material.FILES[kind]:
+        for name in material.pack_files(kind, retired_history):
             path = self.root / "source" / kind / name
             path.parent.mkdir(parents=True, exist_ok=True)
             data = name.encode()
@@ -33,13 +33,14 @@ class ReleaseMaterialTests(unittest.TestCase):
                 data = "".join(f"{key}={'a' * size}\r\n" for key, size in material.PINS[kind].items()).encode()
             path.write_bytes(data)
             sources[name] = path
-        output = self.root / f"{kind}.tar.gz"
+        output = self.root / f"{kind}{'-retired' if retired_history else ''}.tar.gz"
         with contextlib.redirect_stdout(io.StringIO()):
-            material.write_archive(kind, sources, output)
+            material.write_archive(kind, sources, output, retired_history=retired_history)
         return output, sources
 
-    def extract(self, archive, kind, sha=None):
-        args = argparse.Namespace(archive=archive, kind=kind, sha256=sha or material.digest(archive), output=self.root / "unpack")
+    def extract(self, archive, kind, sha=None, retired_history=False):
+        args = argparse.Namespace(archive=archive, kind=kind, sha256=sha or material.digest(archive),
+                                  output=self.root / "unpack", retired_history=retired_history)
         with contextlib.redirect_stdout(io.StringIO()):
             material.extract(args)
 
@@ -101,6 +102,71 @@ class ReleaseMaterialTests(unittest.TestCase):
         sources["pins.env"] = alias
         with self.assertRaises(ValueError):
             material.write_archive("v2", sources, self.root / "bad.tar.gz")
+
+    def test_retired_pack_contains_only_pinned_metadata(self):
+        archive, sources = self.archive("v1", retired_history=True)
+        self.extract(archive, "v1", retired_history=True)
+        root = self.root / "unpack/history-step-pack-v1"
+        files = {str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()}
+        self.assertEqual(files, {"v1/history-step.runtime", "pins.env", "SHA256SUMS"})
+        self.assertEqual((root / "v1/history-step.runtime").read_bytes(), sources["v1/history-step.runtime"].read_bytes())
+
+    def test_transition_and_retired_archive_profiles_cannot_be_mixed(self):
+        full, _ = self.archive("v1")
+        retired, _ = self.archive("v1", retired_history=True)
+        with self.assertRaises(ValueError):
+            self.extract(full, "v1", retired_history=True)
+        with self.assertRaises(ValueError):
+            self.extract(retired, "v1")
+        self.assertFalse((self.root / "unpack").exists())
+
+    def test_retired_profile_cannot_omit_v2_matrices(self):
+        archive, _ = self.archive("v2")
+        with self.assertRaisesRegex(ValueError, "only to the legacy"):
+            self.extract(archive, "v2", retired_history=True)
+        self.assertFalse((self.root / "unpack").exists())
+
+    def test_retired_creation_omits_rows_from_authenticated_full_source(self):
+        legacy, _ = self.archive("v1")
+        _, v2_sources = self.archive("v2")
+        self.extract(legacy, "v1")
+        legacy_root = self.root / "unpack/history-step-pack-v1"
+        args = argparse.Namespace(legacy_pack=legacy_root, v2_pack=self.root / "source/v2",
+                                  v2_pins=v2_sources["pins.env"], retirement_keys=self.root / "source/v2/retirement-keys",
+                                  output=self.root / "created", retired_history=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            material.create(args)
+        archive = args.output / "history-step-pack-v1.tar.gz"
+        with tarfile.open(archive) as packed:
+            self.assertEqual({member.name for member in packed.getmembers()},
+                             {"history-step-pack-v1/" + name for name in
+                              ("v1/history-step.runtime", "pins.env", "SHA256SUMS")})
+        self.assertTrue((legacy_root / "v1/history-step-c00.field-r1cs.zst").is_file())
+
+    def test_retired_archive_rejects_injected_legacy_rows(self):
+        original, _ = self.archive("v1", retired_history=True)
+        changed = self.root / "injected.tar.gz"
+        with tarfile.open(original) as source, tarfile.open(changed, "w:gz") as target:
+            for member in source.getmembers():
+                target.addfile(member, source.extractfile(member))
+            row = tarfile.TarInfo("history-step-pack-v1/v1/history-step-c00.field-r1cs.zst")
+            row.size = 4
+            target.addfile(row, io.BytesIO(b"rows"))
+        with self.assertRaises(ValueError):
+            self.extract(changed, "v1", retired_history=True)
+        self.assertFalse((self.root / "unpack").exists())
+
+    def test_retired_creation_accepts_metadata_only_source(self):
+        legacy, _ = self.archive("v1", retired_history=True)
+        _, v2_sources = self.archive("v2")
+        self.extract(legacy, "v1", retired_history=True)
+        args = argparse.Namespace(legacy_pack=self.root / "unpack/history-step-pack-v1",
+                                  v2_pack=self.root / "source/v2", v2_pins=v2_sources["pins.env"],
+                                  retirement_keys=self.root / "source/v2/retirement-keys",
+                                  output=self.root / "created", retired_history=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            material.create(args)
+        self.assertEqual((args.output / "history-step-pack-v1.tar.gz").read_bytes(), legacy.read_bytes())
 
 
 if __name__ == "__main__":

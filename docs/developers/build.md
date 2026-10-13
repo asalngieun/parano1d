@@ -134,7 +134,8 @@ Run source checks and [qualification](testing.md) before packaging:
   --pack ../parano1d-artifacts/history-step-pack-v1 \
   --v2-pack PATH_TO_FROZEN_V2_PACK \
   --v2-pins PATH_TO_REVIEWED_PIN_FILE \
-  --retirement-keys PATH_TO_AUTHENTICATED_KEYS
+  --retirement-keys PATH_TO_AUTHENTICATED_KEYS \
+  --retired-history
 
 cat target/release-builds/LAST_RELEASE
 ```
@@ -145,12 +146,17 @@ executables and verifies package membership and SHA-256 sums. It does not run
 the entire protocol test suite. `proof-pins.env` records the embedded identities.
 Use `--output PATH` for a fresh output directory.
 
-A later `--retired-history` build omits old matrix bytes once the selected
-origin's authenticated certificate is available over P2P. It still requires the
-two new matrices, old runtime metadata, independently pinned preprocessing keys
-and full certificate verification. Its historical pack may contain only
-`v1/history-step.runtime` and `pins.env`. Build the transition release without
-that flag so it can cross the boundary using the original matrices.
+Use `--retired-history` for the current mainnet release. The selected origin's
+retirement certificate is obtained over P2P and fully verified against the
+independently pinned preprocessing keys. The binary retains both v2 matrices
+and old runtime metadata. The historical input archive contains only
+`v1/history-step.runtime`, `pins.env` and their `SHA256SUMS`.
+
+This profile uses the same mainnet rules as v2.0.3. Nodes with the old matrices
+continue to work alongside matrix-free builds and support both certificate formats.
+
+The publisher selects this profile by default. Use `--with-legacy-history`
+when reproducing a transition release with the original matrices.
 
 ## Portable binaries
 
