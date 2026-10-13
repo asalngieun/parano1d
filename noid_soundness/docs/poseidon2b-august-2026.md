@@ -153,6 +153,8 @@ production cost below the already instantiated Appendix A result of ePrint
 archive version `20260815:020031`, SHA-256
 `d2d712449b7e179d04e44c7eb8da4bf32f37e54b8f323fb5eadcaf05807d6077`.
 
+The October 4 revision adds `(k+1)`-wise collapsing and structured solving. The [October attack review](october-2026-attack-review.md) establishes the width-four CICO-2 exclusion and CICO-1 boundary, derives the actual feed-forward equations and verifies complete two-lane cap authentication. The August calculation above retains its exact reviewed-version scope.
+
 ePrint 2026/1760 requires an MDS matrix chosen after the round constants and a
 prime field of odd characteristic. Production fixes both matrices and all round
 constants together and uses characteristic two. That collision model does not
