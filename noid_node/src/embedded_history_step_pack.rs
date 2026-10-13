@@ -99,6 +99,18 @@ pub fn embedded_retirement_keys(
 
 include!(concat!(env!("OUT_DIR"), "/retirement_keys.rs"));
 
+/// Carry the selected mainnet ancestry proof with matrix-free executables.
+/// Admission still verifies it through the ordinary pinned-key proof path.
+#[cfg(all(feature = "retired-history", not(feature = "isolated-v1-1-testnet")))]
+pub fn embedded_retirement_origin() -> Option<&'static [u8]> {
+    Some(include_bytes!("../assets/mainnet-retirement.origin"))
+}
+
+#[cfg(not(all(feature = "retired-history", not(feature = "isolated-v1-1-testnet"))))]
+pub fn embedded_retirement_origin() -> Option<&'static [u8]> {
+    None
+}
+
 /// `None` is possible only in a pack-free development build.  `build.rs`
 /// rejects a release build without its required pinned artifacts.
 pub fn embedded_history_step_pack() -> Option<&'static EmbeddedHistoryStepPack> {
@@ -173,6 +185,41 @@ mod tests {
         )
         .unwrap();
         assert!(embedded_retirement_keys(metadata.bank()).unwrap().is_some());
+    }
+
+    #[test]
+    fn embedded_retirement_origin_verifies_without_old_rows_and_rejects_corruption() {
+        let Some(bytes) = embedded_retirement_origin() else {
+            return;
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let runtime = crate::embedded_history_step_runtime(directory.path(), false)
+            .unwrap()
+            .unwrap();
+        let mut damaged = bytes.to_vec();
+        let middle = damaged.len() / 2;
+        damaged[middle] ^= 1;
+        assert!(runtime.install_origin_bytes(&damaged).is_err());
+        assert!(!directory.path().join("fork-origins").exists());
+
+        let checked = runtime.install_origin_bytes(bytes).unwrap();
+        assert_eq!(
+            checked.origin().activation_height().unwrap(),
+            noid_chain::consensus::params::MAINNET_V2_ACTIVATION_HEIGHT
+        );
+        runtime.retain_origin(&checked).unwrap();
+        assert_eq!(
+            runtime
+                .origin_bytes(checked.origin().request_binding())
+                .unwrap()
+                .unwrap(),
+            bytes
+        );
+        for index in 0..HISTORY_STEP_PACK_LEAF_COUNT {
+            assert!(runtime
+                .prepare_matrix_cache(CanonicalHistoryStepClassId::from_index(index).unwrap())
+                .is_err());
+        }
     }
 
     #[test]

@@ -2087,6 +2087,19 @@ async fn main() -> anyhow::Result<()> {
         runtime
             .attach_canonical_store(ctx.store.clone())
             .map_err(anyhow::Error::msg)?;
+        if let Some(certificate) = embedded_history_step_pack::embedded_retirement_origin() {
+            let runtime = Arc::clone(runtime);
+            tokio::task::spawn_blocking(move || {
+                noid_miner::install_inbound_verifier_cpu(|| {
+                    let origin = runtime.install_origin_bytes(certificate)?;
+                    runtime.retain_origin(&origin)
+                })
+                .map_err(|error| error.to_string())?
+            })
+            .await
+            .context("embedded retirement proof verification task panicked")?
+            .map_err(anyhow::Error::msg)?;
+        }
     }
     let tip_height = ctx.tip_height();
     let state_root = hex::encode(ctx.tip_header().state_root);
