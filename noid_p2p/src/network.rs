@@ -54,6 +54,7 @@ use crate::protocol::{
     SnapshotManifestPageObjectId, VerifiedStateManifest,
 };
 use crate::resource_profile::BackgroundCapacity;
+use crate::retained_object_cache::RetainedObjectCache;
 use crate::tx_delivery::{TxDeliveries, TxDelivery};
 
 struct PendingStateSegmentResponse {
@@ -2829,7 +2830,11 @@ fn local_history_step_boundary(store: &MdbxStore) -> Option<(u64, [u8; 32])> {
     None
 }
 
-fn load_exact_object(store: &MdbxStore, object: ObjectId) -> Result<Option<Vec<u8>>, String> {
+fn load_exact_object(
+    store: &MdbxStore,
+    object: ObjectId,
+    cache: &RetainedObjectCache,
+) -> Result<Option<Vec<u8>>, String> {
     match object {
         ObjectId::BlockBody(expected) => {
             let canonical = store
@@ -2843,7 +2848,7 @@ fn load_exact_object(store: &MdbxStore, object: ObjectId) -> Result<Option<Vec<u
                             block.header.height == expected.claim.height
                                 && noid_chain::block_header::block_id(&block.header)
                                     == expected.claim.block_hash
-                                && expected.matches_bytes(&bytes)
+                                && cache.matches_bytes(ObjectId::BlockBody(expected), &bytes)
                         });
                     if matches {
                         return Ok(Some(bytes));
@@ -2863,7 +2868,7 @@ fn load_exact_object(store: &MdbxStore, object: ObjectId) -> Result<Option<Vec<u
                 .map_err(|error| format!("decode cached block object: {error:?}"))?;
             if block.header.height != expected.claim.height
                 || noid_chain::block_header::block_id(&block.header) != expected.claim.block_hash
-                || !expected.matches_bytes(&bytes)
+                || !cache.matches_bytes(ObjectId::BlockBody(expected), &bytes)
             {
                 return Ok(None);
             }
@@ -2902,7 +2907,7 @@ fn load_exact_object(store: &MdbxStore, object: ObjectId) -> Result<Option<Vec<u
             if metadata.terminal_height() != expected.claim.height
                 || metadata.terminal_hash() != expected.claim.semantic_header_id
                 || metadata.class_id() != expected.claim.proof_class
-                || !expected.matches_bytes(&bytes)
+                || !cache.matches_bytes(ObjectId::Terminal(expected), &bytes)
             {
                 return Ok(None);
             }
@@ -3907,6 +3912,7 @@ async fn run_swarm(
     let segment_encode_semaphore = Arc::new(Semaphore::new(2));
     let mempool_response_prepare_semaphore = Arc::new(Semaphore::new(1));
     let outbound_response_budget = OutboundResponseBudget::process_global();
+    let retained_object_cache = RetainedObjectCache::process_global();
     let mut data_plane_serving = DataPlaneServingAdmission::new(background_capacity);
     let snapshot_export_root = data_dir.join("snapshot-exports");
     std::fs::create_dir_all(&snapshot_export_root)?;
@@ -3997,6 +4003,7 @@ async fn run_swarm(
                     &network_profile,
                     &header_response_tx,
                     &header_response_prepare_semaphore,
+                    &retained_object_cache,
                     &history_step_response_tx,
                     &history_step_response_prepare_semaphore,
                     &segment_response_tx,
@@ -6362,6 +6369,7 @@ async fn handle_swarm_event(
     network_profile: &NetworkProfile,
     header_response_tx: &mpsc::Sender<PendingHeaderResponse>,
     header_response_prepare_semaphore: &Arc<Semaphore>,
+    retained_object_cache: &Arc<RetainedObjectCache>,
     history_step_response_tx: &mpsc::Sender<PendingHistoryStepTerminalResponse>,
     history_step_response_prepare_semaphore: &Arc<Semaphore>,
     segment_response_tx: &mpsc::Sender<PendingStateSegmentResponse>,
@@ -7215,6 +7223,7 @@ async fn handle_swarm_event(
             let store = chain_store.clone();
             let budget = outbound_response_budget.clone();
             let completion = object_response_tx.clone();
+            let cache = retained_object_cache.clone();
             tokio::spawn(async move {
                 let Ok(serving_permits) = serving_lease.acquire().await else {
                     return;
@@ -7231,7 +7240,7 @@ async fn handle_swarm_event(
                     requested
                         .into_iter()
                         .map(|object| {
-                            let bytes = match load_exact_object(&store, object) {
+                            let bytes = match load_exact_object(&store, object, &cache) {
                                 Ok(bytes) => bytes,
                                 Err(error) => {
                                     tracing::warn!(peer = %peer, ?object, %error, "exact-object storage read failed");
@@ -7681,6 +7690,7 @@ async fn handle_swarm_event(
                 }
             };
             let completion = header_response_tx.clone();
+            let cache = retained_object_cache.clone();
             tokio::spawn(async move {
                 let _preparation_permit = preparation_permit;
                 let loaded = tokio::task::spawn_blocking(move || {
@@ -7729,10 +7739,12 @@ async fn handle_swarm_event(
                                             })
                                         })
                                         .flatten();
-                                    match HeaderInventoryRecord::from_retained_objects(
+                                    match HeaderInventoryRecord::from_retained_objects_with(
                                         header,
                                         body.as_deref(),
                                         terminal.as_deref(),
+                                        |claim, bytes| cache.block_body(claim, bytes),
+                                        |claim, bytes| cache.terminal(claim, bytes),
                                     ) {
                                         Ok(record) => record,
                                         Err(error) => {

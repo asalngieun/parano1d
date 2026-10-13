@@ -29,6 +29,7 @@ mod peer_diversity;
 pub mod peer_store;
 pub mod protocol;
 mod resource_profile;
+mod retained_object_cache;
 mod tx_delivery;
 pub use tx_delivery::TxDelivery;
 pub mod state_manifest_codec;

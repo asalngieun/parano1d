@@ -215,9 +215,10 @@ impl request_response::Codec for ObjectCodec {
         {
             return Err(invalid_data("busy exact-object response carries payload"));
         }
+        let cache = crate::retained_object_cache::RetainedObjectCache::process_global();
         for payload in &objects {
             if let Some(bytes) = payload.bytes.as_deref() {
-                if !payload.object.matches_bytes(bytes) {
+                if !cache.matches_bytes(payload.object, bytes) {
                     return Err(invalid_data("refusing to encode mismatched object bytes"));
                 }
             }
@@ -534,6 +535,65 @@ mod tests {
             )
             .unwrap(),
         )
+    }
+
+    #[tokio::test]
+    async fn cached_outbound_digest_still_rejects_changed_payload_and_id() {
+        let bytes = vec![7; 128];
+        let object = terminal(91, &bytes);
+        let protocol = StreamProtocol::new("/test");
+        let mut codec = ObjectCodec::with_inbound_budget(1024);
+        let response = |object, bytes| GetObjectsResponse {
+            status: DataResponseStatus::Ready,
+            objects: vec![ObjectPayload {
+                object,
+                bytes: Some(bytes),
+            }],
+            inbound_memory_permit: None,
+            outbound_memory_permit: None,
+        };
+        let mut wire = futures::io::Cursor::new(Vec::new());
+        codec
+            .write_response(&protocol, &mut wire, response(object, bytes.clone()))
+            .await
+            .unwrap();
+        let mut changed = bytes.clone();
+        changed[64] ^= 1;
+        assert!(codec
+            .write_response(
+                &protocol,
+                &mut futures::io::Cursor::new(Vec::new()),
+                response(object, changed.clone())
+            )
+            .await
+            .is_err());
+        let ObjectId::Terminal(mut forged) = object else {
+            unreachable!()
+        };
+        forged.byte_digest[0] ^= 1;
+        assert!(codec
+            .write_response(
+                &protocol,
+                &mut futures::io::Cursor::new(Vec::new()),
+                response(ObjectId::Terminal(forged), bytes)
+            )
+            .await
+            .is_err());
+        let mut tampered_wire = wire.into_inner();
+        *tampered_wire.last_mut().unwrap() ^= 1;
+        assert!(codec
+            .read_response(&protocol, &mut futures::io::Cursor::new(tampered_wire))
+            .await
+            .is_err());
+        let changed_object = terminal(91, &changed);
+        codec
+            .write_response(
+                &protocol,
+                &mut futures::io::Cursor::new(Vec::new()),
+                response(changed_object, changed),
+            )
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

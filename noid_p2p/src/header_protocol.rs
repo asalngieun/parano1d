@@ -65,6 +65,22 @@ impl HeaderInventoryRecord {
         body_bytes: Option<&[u8]>,
         terminal_bytes: Option<&[u8]>,
     ) -> Result<Self, HeaderAnnounceError> {
+        Self::from_retained_objects_with(
+            header,
+            body_bytes,
+            terminal_bytes,
+            BlockBodyObjectId::from_bytes,
+            TerminalObjectId::from_bytes,
+        )
+    }
+
+    pub(crate) fn from_retained_objects_with(
+        header: BlockHeader,
+        body_bytes: Option<&[u8]>,
+        terminal_bytes: Option<&[u8]>,
+        body_id: impl FnOnce(BlockBodyClaimId, &[u8]) -> Option<BlockBodyObjectId>,
+        terminal_id: impl FnOnce(TerminalClaimId, &[u8]) -> Option<TerminalObjectId>,
+    ) -> Result<Self, HeaderAnnounceError> {
         if body_bytes.is_some_and(|bytes| {
             noid_chain::Block::from_bytes(bytes)
                 .map(|block| block.header != header)
@@ -78,8 +94,7 @@ impl HeaderInventoryRecord {
         };
         let body = body_bytes
             .map(|bytes| {
-                BlockBodyObjectId::from_bytes(body_claim, bytes)
-                    .ok_or(HeaderAnnounceError::ObjectLengthOverflow)
+                body_id(body_claim, bytes).ok_or(HeaderAnnounceError::ObjectLengthOverflow)
             })
             .transpose()?;
         let terminal = terminal_bytes
@@ -96,8 +111,7 @@ impl HeaderInventoryRecord {
                 {
                     return Err(HeaderAnnounceError::TerminalClaimMismatch);
                 }
-                TerminalObjectId::from_bytes(claim, bytes)
-                    .ok_or(HeaderAnnounceError::ObjectLengthOverflow)
+                terminal_id(claim, bytes).ok_or(HeaderAnnounceError::ObjectLengthOverflow)
             })
             .transpose()?;
         let record = Self {

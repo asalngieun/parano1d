@@ -62,6 +62,10 @@ struct Stats {
     live_bytes: u64,
     control_failures: u64,
     connection_failures: u64,
+    header_latency_ms: Vec<u64>,
+    live_latency_ms: Vec<u64>,
+    inventory_digest: Option<String>,
+    exact_objects: Vec<ObjectId>,
 }
 
 fn protocols(versions: &[&str]) -> Vec<(StreamProtocol, rr::ProtocolSupport)> {
@@ -90,6 +94,7 @@ async fn client(
     height: u64,
     legacy: bool,
     activation: Option<PathBuf>,
+    scenario: String,
 ) -> anyhow::Result<Stats> {
     let identity = identity::Keypair::generate_ed25519();
     let behaviour = ProbeBehaviour {
@@ -160,6 +165,8 @@ async fn client(
     let mut live_pending = false;
     let mut live_cursor = 0usize;
     let mut manifest_pending = false;
+    let mut header_started = None;
+    let mut live_started = None;
     let mut next_state = Instant::now();
     let mut next_header = Instant::now();
     let mut next_live = Instant::now();
@@ -174,7 +181,7 @@ async fn client(
             _ = tick.tick() => {
                 let Some(peer) = peer.filter(|_| stats.profile_verified) else { continue; };
                 let now = Instant::now();
-                if descriptor.is_none() && !manifest_pending && now >= next_manifest {
+                if scenario == "state" && descriptor.is_none() && !manifest_pending && now >= next_manifest {
                     swarm.behaviour_mut().manifests.send_request(&peer, GetStateManifestRequest {
                         requester_height: 0, requested_manifest_digest: [0; 32],
                     });
@@ -186,7 +193,8 @@ async fn client(
                     deadline.as_mut().reset(tokio::time::Instant::now() + Duration::from_secs(seconds));
                 }
                 if !active { continue; }
-                if let (Some(manifest), Some((segment_id, _, _))) = (&manifest, descriptor) {
+                if scenario == "state" {
+                  if let (Some(manifest), Some((segment_id, _, _))) = (&manifest, descriptor) {
                     if !state_pending && now >= next_state {
                         swarm.behaviour_mut().segments.send_request(&peer, GetStateSegmentRequest {
                             segment_id, additional_segments: Vec::new(), expected_tip_height: manifest.tip_height,
@@ -194,21 +202,24 @@ async fn client(
                         });
                         state_pending = true;
                     }
+                  }
                 }
                 if !header_pending && now >= next_header {
                     swarm.behaviour_mut().headers.send_request(&peer, GetHeadersRequest {
                         start_height: height, count: 1, include_inventory: true,
                     });
                     header_pending = true;
+                    header_started = Some(now);
                     next_header = now + Duration::from_secs(2);
                 }
-                if !live_pending && !inventory.is_empty() && now >= next_live {
+                if scenario != "inventory" && !live_pending && !inventory.is_empty() && now >= next_live {
                     // Recursive terminals must be requested alone. Alternate
                     // exact bodies and terminals while keeping one Live lease.
                     let object = inventory[live_cursor % inventory.len()];
                     live_cursor += 1;
                     swarm.behaviour_mut().objects.send_request(&peer, GetObjectsRequest { objects: vec![object] });
                     live_pending = true;
+                    live_started = Some(now);
                     next_live = now + Duration::from_secs(2);
                 }
             }
@@ -304,10 +315,19 @@ async fn client(
                     if matches!(response.status, DataResponseStatus::Busy { .. }) { stats.header_busy += 1; }
                     else {
                         stats.header_ready += 1;
+                        if let Some(started) = header_started.take() {
+                            stats.header_latency_ms.push(started.elapsed().as_millis() as u64);
+                        }
                         if let Some(record) = response.records.first() {
                             anyhow::ensure!(record.header.height == height, "header correlation mismatch");
                             inventory = record.body.map(ObjectId::BlockBody).into_iter()
                                 .chain(record.terminal.map(ObjectId::Terminal)).collect();
+                            let digest = blake3::hash(&record.encode()?).to_hex().to_string();
+                            if let Some(expected) = &stats.inventory_digest {
+                                anyhow::ensure!(expected == &digest, "fixed inventory bytes changed during the workload");
+                            }
+                            stats.inventory_digest = Some(digest);
+                            stats.exact_objects = inventory.clone();
                         }
                     }
                 }
@@ -317,6 +337,9 @@ async fn client(
                     live_pending = false;
                     if matches!(response.status, DataResponseStatus::Busy { .. }) { stats.live_busy += 1; }
                     else {
+                        if let Some(started) = live_started.take() {
+                            stats.live_latency_ms.push(started.elapsed().as_millis() as u64);
+                        }
                         for payload in &response.objects {
                             if let Some(bytes) = &payload.bytes {
                                 anyhow::ensure!(inventory.contains(&payload.object) && payload.object.matches_bytes(bytes), "Live object digest mismatch");
@@ -352,8 +375,8 @@ async fn client(
 async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     anyhow::ensure!(
-        (6..=7).contains(&args.len()),
-        "usage: state_sync_load MULTIADDR CLIENTS SECONDS TIP_HEIGHT LEGACY_CLIENTS [ACTIVATION_FILE]"
+        (6..=8).contains(&args.len()),
+        "usage: state_sync_load MULTIADDR CLIENTS SECONDS TIP_HEIGHT LEGACY_CLIENTS [ACTIVATION_FILE|-] [state|inventory|mixed]"
     );
     let address: Multiaddr = args[1].replace("{client}", "0").parse()?;
     anyhow::ensure!(
@@ -371,6 +394,11 @@ async fn main() -> anyhow::Result<()> {
     );
     let height: u64 = args[4].parse()?;
     let legacy_clients: usize = args[5].parse()?;
+    let scenario = args.get(7).map(String::as_str).unwrap_or("state");
+    anyhow::ensure!(
+        matches!(scenario, "state" | "inventory" | "mixed"),
+        "unknown workload scenario"
+    );
     let mut tasks = Vec::new();
     for index in 0..clients {
         // Namespace routes can give every client a distinct source IP without
@@ -382,7 +410,10 @@ async fn main() -> anyhow::Result<()> {
             seconds,
             height,
             index < legacy_clients,
-            args.get(6).map(PathBuf::from),
+            args.get(6)
+                .filter(|path| path.as_str() != "-")
+                .map(PathBuf::from),
+            scenario.to_owned(),
         )));
         // Exercise steady serving pressure without exceeding the separate
         // production ceiling for simultaneous unauthenticated handshakes.
