@@ -4,7 +4,7 @@ The canonical repository is `git.parano1d.org/ignotusnemo/parano1d`. GitHub `pro
 
 ## Prepare
 
-- Merge the reviewed release source into canonical `main`, then synchronize `main` on `proof-native` and `gitlab`. Keep the development branch synchronized separately.
+- Maintainers merge reviewed release changes from `dev` into canonical `main`, then synchronize `main` on `proof-native` and `gitlab`. Keep `dev` synchronized with any release fixes made on `main`.
 - Set the workspace version and commit `.github/release-notes/vVERSION.md`. Keep each prose paragraph and list item on one physical line.
 - Use the frozen mainnet legacy metadata, v2 pack, v2 pins and two legacy retirement verification keys. Matrix-free mainnet executables embed the selected ancestry proof from `noid_node/assets/mainnet-retirement.origin` and verify it locally under those keys before accepting peers. Cold synchronization must pass through an unchanged v2.0.3 peer retaining only the legacy certificate, with DNS seeds disabled and no internet access.
 - Authenticate `gh` for `proof-native/parano1d`, or supply `GH_TOKEN` with access to that repository. The local publisher checks every remote's `main` before assigning a release tag.

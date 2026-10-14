@@ -11,16 +11,12 @@ request.
 
 ## Pull requests
 
-Choose the target branch according to consensus compatibility:
+Open contributor pull requests against `dev` and base new work on its latest
+commit. This includes mainnet fixes and maintenance changes. Maintainers merge
+reviewed changes from `dev` into `main` for releases.
 
-- target `v1` for mainnet fixes and maintenance changes that preserve the
-  current consensus rules;
-- target `v2` for changes that alter consensus rules or are explicitly assigned
-  to the next protocol release during issue triage;
-- do not target `main` directly.
-
-If you are unsure, open an issue and wait for the branch decision before
-starting a pull request. Security fixes must follow the private reporting and
+If you are unsure about scope or compatibility, open an issue before starting
+a pull request. Security fixes must follow the private reporting and
 triage process in [SECURITY.md](.github/SECURITY.md) before any public pull
 request is opened.
 
