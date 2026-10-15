@@ -1,8 +1,12 @@
-<!-- Open contributor pull requests against dev. Maintainers merge reviewed changes into main. -->
+<!-- Agree on the task with a maintainer before opening a PR. Target dev. See CONTRIBUTING.md. -->
+
+## Agreed task
+
+Link the issue where a maintainer agreed to the task and its scope.
 
 ## Summary
 
-Describe the problem and the change.
+Describe the problem, the change, and its verifiable benefit.
 
 ## Protocol impact
 
