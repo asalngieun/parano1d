@@ -22,6 +22,7 @@ members = [
     "noid_gui",
     # External tools
     "noid_extminer",
+    "noid_pruv",
 ]
 resolver = "2"
 

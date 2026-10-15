@@ -52,6 +52,10 @@ to live rights. Each deposit is an independent instance. The
 [contract guide](docs/contracts/index.md), [API](docs/contracts/api.md) and
 [GUI walkthrough](docs/contracts/gui.md) explain the mechanics and limits.
 
+[Pruv](docs/contracts/pruv.md) compiles readable contract programs into the
+existing native ABI. It checks types and resource limits, exports definitions
+for the current CLI, and verifies declared postconditions with Z3.
+
 ## How a block is made
 
 1. The wallet builds an atomic intent and proves knowledge of the required

@@ -19,6 +19,7 @@
 - [概述](contracts/index.md)
 - [生命周期与机制](contracts/lifecycle.md)
 - [整数内核与 ABI](contracts/core.md)
+- [Pruv 语言](contracts/pruv.md)
 - [模板](contracts/templates.md)
 - [API 与集成](contracts/api.md)
 - [GUI 指南](contracts/gui.md)

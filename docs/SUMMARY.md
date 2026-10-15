@@ -19,6 +19,7 @@
 - [Overview](contracts/index.md)
 - [Lifecycle and mechanics](contracts/lifecycle.md)
 - [Integer core and ABI](contracts/core.md)
+- [Pruv language](contracts/pruv.md)
 - [Templates](contracts/templates.md)
 - [API and integration](contracts/api.md)
 - [GUI walkthrough](contracts/gui.md)

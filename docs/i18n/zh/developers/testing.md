@@ -3,6 +3,29 @@
 Parano1d 使用三层测试：crate 级不变量、跨 crate 发布测试，以及从全新数据目录启动真实进程的
 端到端测试场景。
 
+## Pruv 合约
+
+以 release 模式运行编译器、CLI 和原生合约测试：
+
+```sh
+cargo test --release --locked -p noid_pruv -p noid_tx
+PRUV_TEST_Z3=/path/to/z3 cargo test --release --locked -p noid_pruv -p noid_tx -- --include-ignored
+```
+
+第二条命令包含独立的 Z3 测试：后置条件、反例，以及 SMT 模型与原生解释器在全部操作码、
+谓词来源、取反标志和目标寄存器上的对应关系。源码差分测试覆盖 u64 边界、全部上下文、
+指令顺序、嵌套条件和临时寄存器。CLI 测试覆盖资源限制、重复参数和已有输出文件保护。
+
+`live_pruv_contract_scenario.py` 验证真实 RPC、注资、十种操作、非法调用、截止高度恢复、
+裁剪、重启及全新节点验证回执。`live_pruv_cli_scenario.py` 验证 CLI 预览绑定、等待确认、
+自动保存回执、后继文件与关闭。
+
+第一个场景复制已通过且停止的 v2 测试数据，要求有 `branch-a` 和 `branch-b` 目录；
+第二个使用第一个已停止的输出。每次运行需要新的输出目录和仅有 loopback 的网络命名空间。
+使用带 `isolated-v2-fork-testnet` 特性及匹配本地证明 bank 的 `isolated_v2_node`，
+并使用同一源码版本的 CLI 与 miner。所需环境变量在脚本开头列出。
+结果包含 `report.json`、日志、哈希、定义与回执。
+
 ## 快速检查
 
 针对性修改前运行：

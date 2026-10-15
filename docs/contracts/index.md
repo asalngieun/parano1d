@@ -12,6 +12,7 @@ for the architectural idea. This section explains how to build and use it.
 | --- | --- |
 | Understand terms, deposits, calls and successors | [Lifecycle and mechanics](lifecycle.md) |
 | Review instructions, counters and authorization | [Integer core and ABI](core.md) |
+| Write and verify a native contract program | [Pruv language and walkthrough](pruv.md) |
 | Choose a ready-made policy | [Six templates](templates.md) |
 | Integrate an application or use the CLI | [API and integration](api.md) |
 | Create, share and use contracts in the wallet | [GUI walkthrough](gui.md) |

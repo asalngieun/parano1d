@@ -19,6 +19,7 @@
 - [Обзор](contracts/index.md)
 - [Жизненный цикл и механика](contracts/lifecycle.md)
 - [Целочисленное ядро и ABI](contracts/core.md)
+- [Язык Pruv](contracts/pruv.md)
 - [Шаблоны](contracts/templates.md)
 - [API и интеграция](contracts/api.md)
 - [Работа в GUI](contracts/gui.md)

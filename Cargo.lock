@@ -4165,6 +4165,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "noid_pruv"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "noid_poseidon2b",
+ "noid_tx",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "noid_recursive"
 version = "2.0.4"
 dependencies = [

@@ -40,6 +40,7 @@ fork context.
 | `noid_node` | Daemon, CLI, wallet state and subsystem orchestration |
 | `noid_gui` | Native multilingual wallet and private-node supervision |
 | `noid_extminer` | External Poseidon2b nonce worker |
+| `noid_pruv` | Pruv source compiler and local postcondition verifier for contract ABI 3 |
 
 ## Dependency direction
 
@@ -94,6 +95,8 @@ receipts and fork context; `noid_rpc` exposes typed construction and wallet
 calls. `noid_gui` owns forms, local names and file import/merge.
 
 A new program expressed in the existing ABI can use the same matrices.
+Pruv compiles source into that ABI through the existing `custom_program` API.
+Its compiler and optional Z3 checks run on the developer's machine.
 Changing an opcode, operand meaning, authority rule or execution budget
 changes the proven relation and requires consensus and matrix review.
 Contract terms and receipt journals are application data; they cannot override

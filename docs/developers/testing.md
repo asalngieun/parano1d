@@ -3,6 +3,51 @@
 Parano1d uses three layers of tests: crate-level invariants, cross-crate
 release tests and fresh-process live scenarios.
 
+## Pruv contracts
+
+Run the compiler, CLI and native contract tests in release mode:
+
+```sh
+cargo test --release --locked -p noid_pruv -p noid_tx
+PRUV_TEST_Z3=/path/to/z3 cargo test --release --locked -p noid_pruv -p noid_tx -- --include-ignored
+```
+
+The second command includes the explicit Z3 tests. They cover universal
+postconditions, counterexamples and correspondence between the SMT model and
+native execution for all opcodes, predicate sources, inversions and destinations.
+Source/native differential tests cover u64 boundaries, every context operand,
+instruction order, nested conditions and scratch reuse. Parser and CLI tests
+cover resource limits, duplicate bindings and output preservation.
+
+Two additional live scripts use a loopback-only network namespace:
+
+| Script | Coverage |
+| --- | --- |
+| `live_pruv_contract_scenario.py` | Pruv compilation, real RPC creation and funding, all ten native opcodes, unauthorized calls, deadline recovery, pruning, restart and fresh-node receipt verification |
+| `live_pruv_cli_scenario.py` | CLI preview binding, confirmation wait, automatic receipt saving, successor files and closing |
+
+The first requires a stopped, passed v2 fixture with `branch-a` and `branch-b`
+directories, such as the boundary/reorg qualification fixture. The second uses
+the stopped output of the first. Both copy their inputs into fresh directories.
+Build `isolated_v2_node` with `isolated-v2-fork-testnet` and a matching isolated
+proof bank. Use CLI and miner executables from the same source version.
+
+```sh
+NOID_PRUV_LIVE_DIR=/absolute/path/to/fresh-output \
+NOID_PRUV_SOURCE_FIXTURE=/absolute/path/to/passed-v2-fixture \
+NOID_PRUV_NODE=/absolute/path/to/isolated_v2_node \
+NOID_PRUV_CLI=/absolute/path/to/parano1d-cli \
+NOID_PRUV_MINER=/absolute/path/to/parano1d-miner \
+NOID_PRUV_BIN=/absolute/path/to/pruv \
+NOID_PRUV_Z3=/absolute/path/to/z3 \
+unshare --user --map-root-user --net python3 scripts/live_pruv_contract_scenario.py
+```
+
+For the CLI scenario, set `NOID_PRUV_CLI_SOURCE` to that passed, stopped output,
+choose a new `NOID_PRUV_LIVE_DIR`, keep the executable paths and invoke
+`scripts/live_pruv_cli_scenario.py` in the same kind of namespace. Each run saves
+`report.json`, logs, source and binary hashes, definitions and receipts.
+
 ## Fast checks
 
 Run before a focused change:

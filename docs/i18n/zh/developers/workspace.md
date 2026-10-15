@@ -39,6 +39,7 @@
 | `noid_node` | 守护进程、CLI、钱包状态与子系统协调 |
 | `noid_gui` | 原生多语言钱包及私有节点管理 |
 | `noid_extminer` | 外部 Poseidon2b nonce 搜索进程 |
+| `noid_pruv` | Pruv 源码编译器与合约 ABI 3 的本地后置条件验证工具 |
 
 ## 依赖方向
 
@@ -89,6 +90,8 @@ node and GUI applications
 `noid_chain` 处理当前 State 检查、回执和分叉上下文；`noid_rpc` 提供类型化
 构造与钱包调用。`noid_gui` 管理表单、本地名称及文件导入合并。
 
-使用现有 ABI 的新程序可复用同一矩阵。更改操作码、操作数含义、权限规则或
+使用现有 ABI 的新程序可复用同一矩阵。Pruv 通过现有 `custom_program` API
+将源码编译为该 ABI。编译器与可选的 Z3 检查在开发者本机运行。
+更改操作码、操作数含义、权限规则或
 执行预算会改变证明关系，需要审查共识与矩阵。条款文件及回执日志属于应用
 数据，不能覆盖已承诺程序或当前 State。
