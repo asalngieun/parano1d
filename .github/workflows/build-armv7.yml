@@ -29,7 +29,12 @@ jobs:
         mkdir -p ~/.cargo
         echo '[target.armv7-unknown-linux-gnueabihf]' >> ~/.cargo/config.toml
         echo 'linker = "arm-linux-gnueabihf-gcc"' >> ~/.cargo/config.toml
-
+    - name: Patch Arithmetic Overflow in mdbx_store.rs
+      run: |
+        # Mengubah 1024isize menjadi 1024i64 atau menyesuaikan angkanya agar tidak overflow
+        sed -i 's/1024isize \* 1024 \* 1024 \* 1024/1024_i64 * 1024 * 1024 * 1024/g' noid_chain/src/storage/mdbx_store.rs
+        # Atau jika max_size menerima i64 / u64, pastikan tipe datanya sesuai.
+        
     - name: Build Release Binary
       run: cargo build --target armv7-unknown-linux-gnueabihf --release
 
