@@ -1,0 +1,40 @@
+name: Build for ARMv7
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Memungkinkan Anda mentrigger build secara manual dari tab Actions
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust Toolchain
+      uses: dtolnay/rust-action@stable
+      with:
+        targets: armv7-unknown-linux-gnueabihf
+
+    - name: Install Dependencies & Cross-Linker
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf cmake libclang-dev pkg-config
+
+    - name: Configure Cargo Linker
+      run: |
+        mkdir -p ~/.cargo
+        echo '[target.armv7-unknown-linux-gnueabihf]' >> ~/.cargo/config.toml
+        echo 'linker = "arm-linux-gnueabihf-gcc"' >> ~/.cargo/config.toml
+
+    - name: Build Release Binary
+      run: cargo build --target armv7-unknown-linux-gnueabihf --release
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: parano1d-armv7l
+        path: target/armv7-unknown-linux-gnueabihf/release/parano1d
+        
