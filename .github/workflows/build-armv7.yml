@@ -29,7 +29,7 @@ jobs:
         mkdir -p ~/.cargo
         echo '[target.armv7-unknown-linux-gnueabihf]' >> ~/.cargo/config.toml
         echo 'linker = "arm-linux-gnueabihf-gcc"' >> ~/.cargo/config.toml
-        - name: Patch max_size for 32-bit ARMv7 compatibility
+    - name: Patch max_size for 32-bit ARMv7 compatibility
       run: |
         # Mengubah 1024isize * ... menjadi ukuran aman untuk 32-bit (misal: 2 GiB atau isize::MAX)
         sed -i 's/max_size: Some(1024isize \* 1024 \* 1024 \* 1024)/max_size: Some(2 * 1024 * 1024 * 1024)/g' noid_chain/src/storage/mdbx_store.rs
