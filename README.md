@@ -71,6 +71,22 @@ for the current CLI, and verifies declared postconditions with Z3.
 and a completed proof. An external worker receives a single-use nonce template;
 transaction selection and proving remain in the node.
 
+## Verification without historical replay
+
+Each `HistoryStep` proves the current block relation and verifies the previous
+terminal inside the same relation. For a fixed network profile, proof size and
+terminal verification work do not grow with chain height.
+
+A joining node validates compact headers for cumulative work, authenticates a
+finalized State with its matching proof, then verifies the recent block
+suffix. Header validation scales with chain height; State transfer scales with
+live outputs and rights. Historical transaction execution is covered by the
+recursive proof.
+
+An active node keeps the live State, permanent compact headers and a 42-block
+body-serving window. The [synchronization guide](docs/architecture/synchronization.md)
+describes the authenticated snapshot and recent-suffix paths.
+
 ## V2 network profile
 
 | Parameter | Value |
@@ -116,6 +132,26 @@ is burned; consolidation frees slots and avoids growth fees. The
 [network economics](docs/protocol/economics.md) explains the schedule, its
 rationale and the distinction between gross subsidy and actual supply.
 
+## Development allocation
+
+Parano1d has no premine. For the original three 365-day target-time years from
+genesis, the consensus subsidy allocation is:
+
+- 90% to the miner;
+- 5% to the O(1) Network Fund;
+- 5% to Parano1d Lab.
+
+The allocation ends at block 3,223,778. After that, 100% of new block subsidies
+go to miners. Transaction fees remain entirely miner-claimable after the
+state-growth burn. The [allocation schedule](docs/protocol/economics.md#existing-allocation-schedule)
+details the daily payouts and accounting.
+
+The O(1) Network Fund finances operation, maintenance, security and adoption
+of the live network. Parano1d Lab supports the founders, core developers,
+researchers and contributors advancing the protocol. Both will publish
+periodic reports covering funds received, major expenditures, completed work
+and current priorities.
+
 ## One proof stack
 
 Committed traces use GF(2^128); C1 Fiat–Shamir challenges and recursive claims
@@ -124,9 +160,16 @@ addresses, transactions, trees, transcripts and PoW. FROST-GKR batches its
 permutations and Merkle paths; sumcheck, zerocheck, lincheck and FRI-Binius
 close the relation without a trusted setup.
 
+The [FROST-GKR research article](https://lab.parano1d.org/research/frost-gkr-global-trace-protocol/)
+links the paper, reference implementation and reproducible comparison with
+per-permutation reductions.
+
 Ordinary ownership uses a freshly randomized proof of a 256-bit secret's
-preimage, with no public-key transaction signature. Contract calls prove the
-active policy authority. The libp2p Ed25519 identity identifies a peer only.
+preimage, with no public-key transaction signature. Wallet authorization
+contains no Live State Merkle path and is independent of the current State
+root. The miner proves current input membership and exact State updates in
+the block relation. Contract calls prove the active policy authority. The
+libp2p Ed25519 identity identifies a peer only.
 Public addresses, values and relayed transactions are not concealed, and third
 parties can archive them. Pruning is not an anonymity guarantee.
 
@@ -148,6 +191,18 @@ remain part of the verifier.
 Nodes running v2.0.3 continue to work with their embedded legacy matrices and
 support both certificate formats. Matrix retirement changes the packaged
 verification material while retaining the same mainnet consensus rules.
+
+## Network
+
+The official wallet participates in the P2P mesh through its own node. DNS
+seeds supply initial peer addresses. Kademlia, local mDNS and persisted peer
+addresses support ongoing discovery. Once stable ordinary neighbours are
+available, nodes replace their bootstrap seed connections.
+
+libp2p GossipSub carries transaction intents and compact block announcements.
+Nodes fetch State, block bodies and proofs from peers through bounded requests
+and verify the data locally. See [networking](docs/architecture/networking.md)
+for discovery, peer diversity and transport limits.
 
 ## Run a node or wallet
 
@@ -188,6 +243,31 @@ parano1d-cli contract --help
 Addresses use bech32m `o1…`; 1 NOID = 1,000,000 μNOID. F7 opens Contracts in
 the GUI, and F8 opens Settings. See [RPC](docs/reference/rpc.md) for owner,
 mining and operator access scopes.
+
+### Keep your receipts
+
+The wallet saves outgoing payment receipts locally while the confirmed block
+data is available. Export a saved receipt for a payment to a different owner:
+
+```sh
+parano1d-cli receipt TXID > receipt.hex
+parano1d-cli verify "$(tr -d '\n' < receipt.hex)"
+```
+
+For a retained contract-call receipt, use the saved contract terms and a
+confirmed call ID. Replace `contract.json` and `CALL_TXID` with your file and
+transaction ID; `--out` must name a new file:
+
+```sh
+parano1d-cli contract receipt contract.json CALL_TXID --out call.receipt
+parano1d-cli contract verify call.receipt
+```
+
+Both receipt formats remain verifiable after the block body is pruned. Keep
+public contract terms and receipts with your backups. A receipt establishes a
+past payment or call; current spendability is checked against authenticated
+State. See [payment receipts](docs/concepts/receipts.md) and
+[contract receipts and recovery](docs/contracts/receipts-and-recovery.md).
 
 ## Build and verify
 
